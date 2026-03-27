@@ -106,7 +106,7 @@ export default function StepFamily({ members, onChange }: Props) {
                       value={member.name}
                       onChange={e => updateMember(member.id, { name: e.target.value })}
                       className="w-full px-3 py-2 rounded-xl text-sm border bg-white focus:outline-none focus:ring-2 focus:ring-saffron"
-                      style={{ border: '1.5px solid #F5E9D6', focusRingColor: '#E8793A' }}
+                      style={{ border: '1.5px solid #F5E9D6' }}
                     />
                   </div>
                   <div>

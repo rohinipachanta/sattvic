@@ -7,7 +7,7 @@
 //   - Resolved location (from zip code)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClientFromCookies } from '@/lib/supabase'
+import { createServerClientFromCookies } from '@/lib/supabase/server'
 import { resolveZipToLocation } from '@/domain/lunar'
 import type { WizardState } from '@/types'
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       name:               m.name.trim(),
       date_of_birth:      m.date_of_birth,
       gender:             m.gender,
-      weight_kg:          m.weight_kg ? parseFloat(m.weight_kg) : null,
+      weight_kg:          m.weight_kg ? Number(m.weight_kg) : null,
       dosha:              m.dosha ?? null,
       activity_level:     m.activity_level,
       dietary_preference: m.dietary_preference,

@@ -3,7 +3,7 @@
 // Login Page — Landing screen with Google Sign-In
 // ─────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   async function signInWithGoogle() {

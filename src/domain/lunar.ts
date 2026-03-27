@@ -178,6 +178,46 @@ export const FASTING_CONFIGS: Record<FastingType, FastingConfig> = {
     restricted_foods: ['Non-vegetarian food', 'Onion', 'Garlic', 'Salt (traditionally)'],
     protein_sources: ['Chana dal', 'Milk', 'Peanuts'],
   },
+  monday: {
+    type: 'monday',
+    displayName: 'Monday Fast (Somvar)',
+    description: 'Monday fast dedicated to Lord Shiva. Fruit, milk and light sattvic food only.',
+    allowed_foods: ['Fruits', 'Milk', 'Curd', 'Sabudana', 'Light grain meal in evening'],
+    restricted_foods: ['Non-vegetarian food', 'Onion', 'Garlic'],
+    protein_sources: ['Milk', 'Curd', 'Peanuts'],
+  },
+  thursday: {
+    type: 'thursday',
+    displayName: 'Thursday Fast (Guruvar)',
+    description: 'Thursday fast dedicated to Lord Vishnu. One meal a day with yellow foods.',
+    allowed_foods: ['Yellow foods', 'Fruits', 'Milk', 'Light grain meal'],
+    restricted_foods: ['Non-vegetarian food', 'Onion', 'Garlic'],
+    protein_sources: ['Chana dal', 'Milk', 'Peanuts'],
+  },
+  saturday: {
+    type: 'saturday',
+    displayName: 'Saturday Fast (Shanivar)',
+    description: 'Saturday fast dedicated to Lord Shani. Black sesame, urad dal and simple foods.',
+    allowed_foods: ['Black sesame', 'Urad dal', 'Fruits', 'Milk', 'Light grain meal'],
+    restricted_foods: ['Non-vegetarian food', 'Onion', 'Garlic', 'Alcohol'],
+    protein_sources: ['Urad dal', 'Milk', 'Sesame'],
+  },
+  pradosh: {
+    type: 'pradosh',
+    displayName: 'Pradosh Vrat',
+    description: 'Observed on the 13th lunar day — dedicated to Lord Shiva. Partial fast until sunset.',
+    allowed_foods: ['Fruits', 'Milk', 'Curd', 'Nuts', 'Light sattvic food after sunset'],
+    restricted_foods: ['Non-vegetarian food', 'Onion', 'Garlic', 'Alcohol', 'Grains (ideally)'],
+    protein_sources: ['Milk', 'Curd', 'Nuts'],
+  },
+  purnima: {
+    type: 'purnima',
+    displayName: 'Purnima (Full Moon)',
+    description: 'Full moon day — many observe a partial fast with sattvic food only.',
+    allowed_foods: ['Sattvic vegetarian food', 'Fruits', 'Milk', 'Light grains'],
+    restricted_foods: ['Non-vegetarian food', 'Alcohol', 'Onion', 'Garlic'],
+    protein_sources: ['Milk', 'Dal', 'Curd'],
+  },
 }
 
 // ── 3. Fasting Day Detection ──────────────────
@@ -218,10 +258,12 @@ export function getFastingDaysForWeek(
         const config = FASTING_CONFIGS[fastType]
         days.push({
           date: dateStr,
+          fastingType: fastType,
           type: fastType,
           name: config.displayName,
           allowed_foods: config.allowed_foods,
           restricted_foods: config.restricted_foods,
+          protein_sources: config.protein_sources,
         })
       }
     }

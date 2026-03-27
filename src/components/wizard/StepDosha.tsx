@@ -29,7 +29,7 @@ function DoshaQuiz({ onComplete }: { onComplete: (dosha: Dosha) => void }) {
       setTimeout(() => setCurrentQ(questionIdx + 1), 300);
     } else {
       // All answered — calculate
-      const answerArray = PRAKRITI_QUIZ.map((_, i) => newAnswers[i] ?? 0);
+      const answerArray = PRAKRITI_QUIZ.map((q, i) => q.answers[newAnswers[i] ?? 0].dosha);
       const dosha = scoreDoshaQuiz(answerArray);
       onComplete(dosha);
     }
@@ -65,7 +65,7 @@ function DoshaQuiz({ onComplete }: { onComplete: (dosha: Dosha) => void }) {
                 color: answers[currentQ] === i ? '#E8793A' : '#2C2416',
               }}>
               <span className="font-medium mr-2">{String.fromCharCode(65 + i)}.</span>
-              {ans.text}
+              {ans.label}
               <span className="text-xs text-gray-400 ml-2">({ans.dosha})</span>
             </button>
           ))}
