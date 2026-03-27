@@ -1,0 +1,141 @@
+// ─────────────────────────────────────────────
+// API Route: POST /api/generate-plan
+// ─────────────────────────────────────────────
+// Generates a 7-day meal plan using Gemini 2.0 Flash.
+// Saves the plan to Supabase and returns it.
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClientFromCookies } from '@/lib/supabase'
+import { getJsonModel, callGeminiWithTimeout } from '@/lib/gemini'
+import { buildMealPlanPrompt, validateMealPlanResponse } from '@/domain/meal-plan'
+import { getFastingDaysForWeek, getWeekStart } from '@/domain/lunar'
+import type { FamilyMember, FastingPreferences } from '@/types'
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createServerClientFromCookies()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const weekStartDate: string | undefined = body.weekStart
+
+    // ── Load user data from Supabase ──
+    const [membersResult, fastingResult, userResult] = await Promise.all([
+      supabase.from('family_members')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at'),
+      supabase.from('fasting_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .single(),
+      supabase.from('users')
+        .select('location_lat, location_lng, location_timezone, location_country')
+        .eq('id', user.id)
+        .single(),
+    ])
+
+    const members = (membersResult.data ?? []) as FamilyMember[]
+    const fasting = fastingResult.data as FastingPreferences | null
+    const userLocation = userResult.data
+
+    if (members.length === 0) {
+      return NextResponse.json(
+        { error: 'No family members found. Please complete setup first.' },
+        { status: 400 }
+      )
+    }
+
+    // ── Determine week start ──
+    const weekStart = weekStartDate
+      ? new Date(weekStartDate)
+      : getWeekStart()
+
+    // ── Get fasting days ──
+    const fastingDays = getFastingDaysForWeek(
+      weekStart,
+      fasting?.fasting_types ?? ['ekadashi'],
+      {
+        lat: userLocation?.location_lat ?? 20.0,
+        lng: userLocation?.location_lng ?? 78.0,
+        timezone: userLocation?.location_timezone ?? 'Asia/Kolkata',
+      }
+    )
+
+    // ── Detect hemisphere ──
+    const lat = userLocation?.location_lat ?? 20.0
+    const hemisphere = lat >= 0 ? 'north' : 'south'
+
+    // ── Build prompt ──
+    const prompt = buildMealPlanPrompt({
+      familyMembers: members,
+      fastingDays,
+      weekStart,
+      hemisphere,
+      cuisines: members.flatMap(m => m.cuisine_preferences)
+        .filter((v, i, arr) => arr.indexOf(v) === i) as never[],
+    })
+
+    // ── Call Gemini with 30s timeout ──
+    const model = getJsonModel()
+    const rawResponse = await callGeminiWithTimeout(async () => {
+      const result = await model.generateContent(prompt)
+      return result.response.text()
+    }, 30_000)
+
+    // ── Parse and validate ──
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(rawResponse)
+    } catch {
+      console.error('Gemini returned invalid JSON:', rawResponse.slice(0, 500))
+      return NextResponse.json(
+        { error: 'Meal plan generation failed — invalid response. Please try again.' },
+        { status: 500 }
+      )
+    }
+
+    const validated = validateMealPlanResponse(parsed)
+    if (!validated) {
+      return NextResponse.json(
+        { error: 'Meal plan structure was unexpected. Please try again.' },
+        { status: 500 }
+      )
+    }
+
+    // ── Save to Supabase (upsert — replace if week already exists) ──
+    const weekStartStr = weekStart.toISOString().split('T')[0]
+    const { data: savedPlan, error: saveError } = await supabase
+      .from('meal_plans')
+      .upsert({
+        user_id:         user.id,
+        week_start_date: weekStartStr,
+        generated_at:    new Date().toISOString(),
+        plan_data:       validated,
+      }, { onConflict: 'user_id,week_start_date' })
+      .select()
+      .single()
+
+    if (saveError) {
+      console.error('Error saving meal plan:', saveError)
+      return NextResponse.json({ error: 'Failed to save meal plan.' }, { status: 500 })
+    }
+
+    return NextResponse.json({ plan: savedPlan, fastingDays })
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    if (message === 'GEMINI_TIMEOUT') {
+      return NextResponse.json(
+        { error: 'Meal plan generation timed out. Please try again.' },
+        { status: 504 }
+      )
+    }
+    console.error('generate-plan error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

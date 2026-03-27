@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sattvic Design System — CSS Variables */
+:root {
+  --saffron:     #E8793A;
+  --turmeric:    #F5A623;
+  --lotus:       #C2546E;
+  --leaf:        #4A7C59;
+  --protein:     #5B8DD9;
+  --cream:       #FDF6EC;
+  --warm-white:  #FFFDF8;
+  --charcoal:    #2C2416;
+  --mid:         #6B5B45;
+  --light:       #C9B99A;
+  --fast-bg:     #F3EAF7;
+  --fast-border: #9B6BB5;
+  --radius:      14px;
+  --shadow:      0 2px 16px rgba(44,36,22,0.10);
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-charcoal font-sans;
+    min-height: 100vh;
+  }
+  /* Smooth focus rings using saffron */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-saffron ring-offset-1;
+  }
+}
+
+@layer components {
+  /* Reusable card */
+  .card {
+    @apply bg-white rounded-card shadow-card p-5;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply bg-saffron text-white font-semibold rounded-pill px-6 py-3
+           hover:-translate-y-px hover:shadow-lg transition-all duration-150
+           active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Secondary / ghost button */
+  .btn-secondary {
+    @apply bg-warm-white text-charcoal font-semibold rounded-pill px-6 py-3
+           border border-light hover:border-saffron hover:text-saffron
+           transition-all duration-150;
+  }
+
+  /* Outline button */
+  .btn-outline {
+    @apply bg-transparent text-saffron font-semibold rounded-pill px-6 py-3
+           border border-saffron hover:bg-saffron hover:text-white
+           transition-all duration-150;
+  }
+
+  /* Tag / pill selector */
+  .tag {
+    @apply px-4 py-2 rounded-pill border border-light bg-warm-white
+           cursor-pointer text-sm transition-all duration-150 select-none
+           hover:border-saffron hover:text-saffron;
+  }
+  .tag.selected {
+    @apply bg-saffron text-white border-saffron;
+  }
+
+  /* Fasting day column highlight */
+  .fasting-day {
+    @apply bg-fast-bg border border-fast-border rounded-card;
+  }
+
+  /* Skeleton loading pulse */
+  .skeleton {
+    @apply bg-light/50 rounded animate-pulse;
+  }
+}
+
+/* Smooth skeleton animation */
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
