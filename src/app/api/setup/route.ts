@@ -47,15 +47,16 @@ export async function POST(request: NextRequest) {
     const memberRows = members.map(m => ({
       user_id:            user.id,
       name:               m.name.trim(),
-      date_of_birth:      m.date_of_birth,
-      gender:             m.gender,
-      weight_kg:          m.weight_kg ? Number(m.weight_kg) : null,
+      date_of_birth:      m.dob || m.date_of_birth || null,   // WizardMemberDraft uses `dob`
+      gender:             m.gender ?? null,
+      weight_kg:          m.weight_kg  ? Number(m.weight_kg)  : null,
+      height_cm:          m.height_cm  ? Number(m.height_cm)  : null,
       dosha:              m.dosha ?? null,
       activity_level:     m.activity_level,
       dietary_preference: m.dietary_preference,
       health_conditions:  m.health_conditions,
       health_goals:       m.health_goals,
-      cuisine_preferences,
+      cuisine_preferences: cuisine_preferences ?? [],
     }))
 
     const { error: membersError } = await supabase

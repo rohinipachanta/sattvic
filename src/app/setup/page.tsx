@@ -84,9 +84,11 @@ export default function SetupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           members: state.members,
-          zip: state.zip,
-          country: state.country,
-          fasting_types: state.fasting_types,
+          cuisine_preferences: state.members[0]?.cuisines ?? [],
+          location_zip:        state.zip,
+          location_country:    state.country,
+          fasting_types:       state.fasting_types,
+          fasting_strictness:  'moderate',
         }),
       });
       const json = await res.json();
