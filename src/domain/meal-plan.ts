@@ -33,9 +33,6 @@ const GOAL_INSTRUCTIONS: Record<HealthGoal, string> = {
   energy: 'Prioritise sustained-energy meals — no heavy lunches. Energising breakfasts, warm spiced foods, avoid Tamasic (heavy, stale) foods.',
   gut_health: 'Prioritise probiotic-rich foods (curd, buttermilk, kanji), Agni-supporting spices (ginger, cumin, ajwain). Avoid raw and cold foods.',
   hormonal_balance: 'Include anti-inflammatory foods, lignans (sesame, flax), phytoestrogen-rich legumes. Reduce Rajasic foods. Support liver with bitter greens and turmeric.',
-  muscle_gain: 'Higher protein (1.6–2g/kg). Include complete proteins at every meal — paneer, legumes, dairy. Time protein around activity.',
-  diabetes_management: 'Low GI throughout. Consistent meal timing. Include bitter gourd, fenugreek, cinnamon. Avoid refined carbs and sugary foods.',
-  heart_health: 'Reduce saturated fat. Include omega-3 rich walnuts and flaxseed. Garlic, turmeric, and oats are cardioprotective. Low sodium.',
 }
 
 const CONDITION_NOTES: Record<HealthCondition, string> = {
@@ -51,15 +48,6 @@ const CONDITION_NOTES: Record<HealthCondition, string> = {
   ibs: 'Low FODMAP where possible. Avoid raw onion, garlic, beans. Favour cooked easy-to-digest foods.',
   lactose_intolerance: 'Avoid cow milk and heavy dairy. Coconut milk, oat milk, and small amounts of curd (lower lactose) are fine.',
   gluten_sensitivity: 'No wheat, semolina (rava), or barley. Use rice, millets, buckwheat, quinoa.',
-  diabetes: 'Low GI meals. Consistent meal timing. Include bitter gourd, fenugreek, cinnamon. Avoid refined carbs.',
-  hypertension: 'Low sodium diet. Potassium-rich foods. Avoid pickles, papads, processed foods. Calming spices.',
-  thyroid: 'Cook cruciferous vegetables. Include selenium-rich foods. Moderate iodine. Avoid excess soy.',
-  pregnancy: 'Nutrient-dense meals. High folate (green leafy veg, legumes). Iron and calcium rich. Avoid raw foods.',
-  heart_disease: 'Low saturated fat. Cardioprotective spices (turmeric, garlic). Include omega-3 sources. Low sodium.',
-  kidney_disease: 'Low potassium and phosphorus. Limit dairy. Controlled protein. Avoid high-oxalate foods.',
-  lactose_intolerant: 'Avoid cow milk and heavy dairy. Coconut milk, oat milk, and small amounts of curd are fine.',
-  gluten_intolerant: 'No wheat, semolina (rava), or barley. Use rice, millets, buckwheat, quinoa.',
-  nut_allergy: 'Avoid all tree nuts and peanuts. Use seeds (sunflower, pumpkin) as alternatives for healthy fats.',
 }
 
 // ── Prompt Builder ────────────────────────────
@@ -105,7 +93,7 @@ export function buildMealPlanPrompt(params: PromptParams): string {
   const fastingSection = fastingDays.length === 0
     ? 'No fasting days this week.'
     : fastingDays.map(f =>
-        `- ${f.date}: ${f.name}\n  Allowed: ${(f.allowed_foods ?? []).slice(0, 8).join(', ')}\n  Restricted: ${(f.restricted_foods ?? []).slice(0, 5).join(', ')}`
+        `- ${f.date}: ${f.name}\n  Allowed: ${f.allowed_foods.slice(0, 8).join(', ')}\n  Restricted: ${f.restricted_foods.slice(0, 5).join(', ')}`
       ).join('\n')
 
   // ── Season section ──

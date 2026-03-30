@@ -22,6 +22,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ location: null, error: 'Could not resolve this zip code.' })
   }
 
-  // Spread location fields to top level so frontend can read json.city directly
-  return NextResponse.json({ ...location, location })
+  return NextResponse.json({ location })
 }

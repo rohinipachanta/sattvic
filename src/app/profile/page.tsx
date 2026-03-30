@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase';
 import { calcAllProteinTargets } from '@/domain/protein';
 import type { FamilyMember, ProteinTarget } from '@/types';
 

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClientFromCookies } from '@/lib/supabase/server';
+import { createServerClientFromCookies } from '@/lib/supabase';
 import { getJsonModel, callGeminiWithTimeout } from '@/lib/gemini';
 import { getCurrentSeason } from '@/domain/ayurveda';
 import { getWeekStart } from '@/domain/lunar';
 import type { FamilyMember, Meal, MealPlan } from '@/types';
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerClientFromCookies();
+  const supabase = createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 Regenerate a single ${mealType} meal for ${date} for the following family:
 ${memberProfiles}
 
-Current Ayurvedic season: ${season.name} (${season.guidance}).
+Current Ayurvedic season: ${season.name} (${season.description}).
 Preferred cuisines: ${cuisines}.
 
 The previous meal was not suitable — please suggest something fresh and different.
@@ -79,11 +79,11 @@ Return ONLY valid JSON matching this exact structure:
 
   try {
     const model = getJsonModel();
-    const rawText = await callGeminiWithTimeout(async () => {
-      const r = await model.generateContent(prompt);
-      return r.response.text();
-    }, 30_000);
-    const result: Meal = JSON.parse(rawText as string);
+    const result = await callGeminiWithTimeout<Meal>(model, prompt, 30000);
+
+    if (result === 'GEMINI_TIMEOUT') {
+      return NextResponse.json({ error: 'AI took too long. Please try again.' }, { status: 504 });
+    }
 
     const newMeal = result;
 
