@@ -1,4 +1,6 @@
 'use client';
+export const dynamic = 'force-dynamic';
+;
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase';
@@ -66,7 +68,7 @@ function MealCard({ meal, onClick }: { meal: Meal; onClick: () => void }) {
     <button onClick={onClick}
       className="w-full text-left p-3 rounded-xl bg-white hover:shadow-md transition-shadow duration-200 border border-gray-100 mb-2">
       <div className="flex items-start gap-2">
-        <span className="text-base">{emojiMap[meal.meal_type] ?? '🍽️'}</span>
+        <span className="text-base">{emojiMap[meal.meal_type ?? ''] ?? '🍽️'}</span>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm text-charcoal truncate">{meal.name}</div>
           <div className="text-xs text-gray-400 capitalize">{meal.meal_type}</div>

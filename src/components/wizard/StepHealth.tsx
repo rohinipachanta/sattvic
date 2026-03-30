@@ -78,7 +78,7 @@ function DoshaQuiz({ memberName, onComplete, onCancel }: { memberName: string; o
     if (qIdx < PRAKRITI_QUIZ.length - 1) {
       setTimeout(() => setCurrentQ(qIdx + 1), 280);
     } else {
-      onComplete(scoreDoshaQuiz(PRAKRITI_QUIZ.map((_, i) => next[i] ?? 0)));
+      onComplete(scoreDoshaQuiz(PRAKRITI_QUIZ.map((q, i) => q.answers[next[i] ?? 0]?.dosha ?? 'vata')));
     }
   };
 
@@ -109,7 +109,7 @@ function DoshaQuiz({ memberName, onComplete, onCancel }: { memberName: string; o
               background: answers[currentQ] === i ? 'rgba(155,107,181,0.1)' : 'white',
               color: answers[currentQ] === i ? '#7B3FA0' : '#2C2416',
             }}>
-            <span className="font-semibold mr-1">{String.fromCharCode(65 + i)}.</span>{ans.text}
+            <span className="font-semibold mr-1">{String.fromCharCode(65 + i)}.</span>{ans.label}
           </button>
         ))}
       </div>

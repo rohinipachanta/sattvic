@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientFromCookies } from '@/lib/supabase-server'
 import { createEvents, EventAttributes } from 'ics'
-import type { DayPlan } from '@/types'
+import type { DayPlan, Meal } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,57 +28,73 @@ export async function GET(request: NextRequest) {
 
     if (!plan) return NextResponse.json({ error: 'No plan found for this week' }, { status: 404 })
 
-    const week: DayPlan[] = plan.plan_data.week
+    const week: DayPlan[] = plan.plan_data.week ?? plan.plan_data.days ?? []
     const events: EventAttributes[] = []
 
     for (const day of week) {
       const dateParts = day.date.split('-').map(Number) as [number, number, number]
 
+      // Helper: find meal by type from the meals array
+      const getMeal = (type: string): Meal | undefined =>
+        (day.meals ?? []).find((m: Meal) => m.meal_type === type)
+
+      const breakfast = getMeal('breakfast')
+      const lunch     = getMeal('lunch')
+      const dinner    = getMeal('dinner')
+
       if (day.is_fasting) {
         // Fasting day → all-day event
-        const config = day.fasting_type
+        const lines: string[] = [
+          `Fasting today — ${day.fasting_type ?? 'fasting'}`,
+          '',
+        ]
+        if (breakfast) lines.push(`🌅 Breakfast: ${breakfast.name}`)
+        if (lunch)     lines.push(`☀️  Lunch: ${lunch.name}`)
+        if (dinner)    lines.push(`🌙 Dinner: ${dinner.name}`)
+        if (day.daily_totals) lines.push('', `Protein today: ${day.daily_totals.protein_g}g`)
+
         events.push({
           title: `🌙 ${day.fasting_type === 'ekadashi' ? 'Ekadashi' : 'Navratri'} — Fasting Day`,
           start: dateParts,
           duration: { days: 1 },
-          description: [
-            `Fasting today — ${day.fasting_type}`,
-            '',
-            `🌅 Breakfast: ${day.meals.breakfast.name}`,
-            `☀️  Lunch: ${day.meals.lunch.name}`,
-            `🌙 Dinner: ${day.meals.dinner.name}`,
-            '',
-            `Protein today: ${day.daily_totals.protein_g}g`,
-          ].join('\n'),
+          description: lines.join('\n'),
           categories: ['Sattvic', 'Fasting'],
           status: 'CONFIRMED',
         })
       } else {
-        // Regular day → 3 meal events
-        const mealSlots: [string, string, [number, number, number, number, number]][] = [
-          ['Breakfast', day.meals.breakfast.name, [...dateParts, 8, 0] as [number, number, number, number, number]],
-          ['Lunch', day.meals.lunch.name, [...dateParts, 13, 0] as [number, number, number, number, number]],
-          ['Dinner', day.meals.dinner.name, [...dateParts, 19, 30] as [number, number, number, number, number]],
+        // Regular day → meal events
+        const mealSlots: [string, Meal | undefined, [number, number, number, number, number]][] = [
+          ['Breakfast', breakfast, [...dateParts, 8, 0]  as [number, number, number, number, number]],
+          ['Lunch',     lunch,     [...dateParts, 13, 0] as [number, number, number, number, number]],
+          ['Dinner',    dinner,    [...dateParts, 19, 30] as [number, number, number, number, number]],
         ]
 
-        for (const [type, name, startTime] of mealSlots) {
-          const mealKey = type.toLowerCase() as 'breakfast' | 'lunch' | 'dinner'
-          const meal = day.meals[mealKey]
+        for (const [type, meal, startTime] of mealSlots) {
+          if (!meal) continue
           const emoji = type === 'Breakfast' ? '🌅' : type === 'Lunch' ? '☀️' : '🌙'
+          const descLines: string[] = []
+
+          if (meal.ayurvedic_guna || meal.dosha_effect) {
+            descLines.push(`🌿 ${meal.ayurvedic_guna ?? ''} · ${meal.dosha_effect ?? ''}`.trim())
+          }
+          const protein  = meal.protein_g  ?? meal.nutrition?.protein_g
+          const calories = meal.calories    ?? meal.nutrition?.calories
+          if (protein || calories) {
+            descLines.push(`💪 Protein: ${protein ?? '?'}g · Calories: ${calories ?? '?'} kcal`)
+          }
+          if (meal.accompaniments && meal.accompaniments.length > 0) {
+            const acc = meal.accompaniments[0]
+            descLines.push(`💡 Suggestion: ${acc.name} — ${acc.reason ?? acc.benefit ?? ''}`)
+          }
+          if (meal.ingredients && meal.ingredients.length > 0) {
+            descLines.push('', `Ingredients: ${meal.ingredients.slice(0, 5).join(', ')}`)
+          }
 
           events.push({
-            title: `${emoji} ${type} — ${name}`,
+            title: `${emoji} ${type} — ${meal.name}`,
             start: startTime,
             duration: { minutes: 30 },
-            description: [
-              `🌿 ${meal.ayurvedic_guna} · ${meal.dosha_effect}`,
-              `💪 Protein: ${meal.protein_g}g · Calories: ${meal.calories} kcal`,
-              meal.accompaniments.length > 0
-                ? `💡 Suggestion: ${meal.accompaniments[0].name} — ${meal.accompaniments[0].reason}`
-                : '',
-              '',
-              `Ingredients: ${meal.ingredients.slice(0, 5).join(', ')}`,
-            ].filter(Boolean).join('\n'),
+            description: descLines.filter(Boolean).join('\n'),
             categories: ['Sattvic', 'Meal'],
             status: 'CONFIRMED',
           })
