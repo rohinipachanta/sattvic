@@ -14,7 +14,7 @@ const JSON_CONFIG: GenerationConfig = {
   responseMimeType: 'application/json',
   temperature: 0.7,        // Some creativity, but not random
   topP: 0.9,
-  maxOutputTokens: 8192,   // Enough for a full week plan
+  maxOutputTokens: 3000,   // Reduced to keep responses fast (2 days fits easily)
 }
 
 // Standard config for text responses
@@ -30,18 +30,18 @@ const TEXT_CONFIG: GenerationConfig = {
  */
 export function getJsonModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.5-flash',
     generationConfig: JSON_CONFIG,
   })
 }
 
 /**
- * Get the Gemini 1.5 Flash model for text responses.
+ * Get the Gemini 2.5 Flash model for text responses.
  * Use this for explanations, dosha quiz scoring, etc.
  */
 export function getTextModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.5-flash',
     generationConfig: TEXT_CONFIG,
   })
 }
