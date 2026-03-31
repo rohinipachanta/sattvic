@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
     }
 
-    const body = await request.json()
+    // Body is optional — frontend may POST with no body when using defaults
+    let body: { weekStart?: string } = {}
+    try { body = await request.json() } catch { /* empty body is fine */ }
     const weekStartDate: string | undefined = body.weekStart
 
     // ── Load user data from Supabase ──
