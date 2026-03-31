@@ -14,7 +14,7 @@ const JSON_CONFIG: GenerationConfig = {
   responseMimeType: 'application/json',
   temperature: 0.7,        // Some creativity, but not random
   topP: 0.9,
-  maxOutputTokens: 5000,   // 2 days of meals needs ~4000 tokens; 5000 gives a safe buffer
+  maxOutputTokens: 8192,   // 2 days of meals needs ~4000 tokens; 8192 gives a safe buffer
 }
 
 // Standard config for text responses
@@ -27,21 +27,24 @@ const TEXT_CONFIG: GenerationConfig = {
 /**
  * Get the Gemini 2.0 Flash model configured for JSON output.
  * Use this for meal plan generation.
+ * Note: gemini-2.0-flash is used (not 2.5-flash) because 2.5-flash has
+ * "thinking mode" enabled by default which outputs reasoning tokens before
+ * the JSON, causing JSON.parse to fail with "invalid response" errors.
  */
 export function getJsonModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     generationConfig: JSON_CONFIG,
   })
 }
 
 /**
- * Get the Gemini 2.5 Flash model for text responses.
+ * Get the Gemini 2.0 Flash model for text responses.
  * Use this for explanations, dosha quiz scoring, etc.
  */
 export function getTextModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     generationConfig: TEXT_CONFIG,
   })
 }
