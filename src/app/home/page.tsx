@@ -229,6 +229,21 @@ export default function HomePage() {
     loadData();
   }, []);
 
+  /**
+   * Normalize raw plan data into a consistent MealPlan shape for the UI.
+   * Handles two storage variants:
+   *   - Full DB row: { plan_data: { week: [...] } }
+   *   - Raw plan object: { week: [...] } or { days: [...] }
+   */
+  const normalizePlan = (raw: unknown): MealPlan => {
+    const r = raw as Record<string, unknown>;
+    // If it's a full DB row (has plan_data), unwrap it first
+    const planData = (r?.plan_data ?? r) as Record<string, unknown>;
+    const days = (planData?.days ?? planData?.week ?? []) as MealPlan['days'];
+    const fastingDays = (planData?.fasting_days ?? []) as FastingDay[];
+    return { ...(planData as MealPlan), days, fasting_days: fastingDays };
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -254,8 +269,9 @@ export default function HomePage() {
         .single();
 
       if (planData) {
-        setPlan(planData.plan_data as MealPlan);
-        setFastingDays(planData.plan_data?.fasting_days ?? []);
+        const normalized = normalizePlan(planData.plan_data);
+        setPlan(normalized);
+        setFastingDays(normalized.fasting_days ?? []);
       }
     } catch (e) {
       console.error('Load error', e);
@@ -271,8 +287,10 @@ export default function HomePage() {
       const res = await fetch('/api/generate-plan', { method: 'POST' });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Generation failed');
-      setPlan(json.plan);
-      setFastingDays(json.fastingDays ?? []);
+      // json.plan is the full Supabase row — normalize to extract days array
+      const normalized = normalizePlan(json.plan);
+      setPlan(normalized);
+      setFastingDays(json.fastingDays ?? normalized.fasting_days ?? []);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -282,6 +300,7 @@ export default function HomePage() {
 
   const handleRegenerate = async (meal: Meal) => {
     setSelectedMeal(null);
+    setError(null);
     try {
       const res = await fetch('/api/regenerate-meal', {
         method: 'POST',
@@ -289,17 +308,17 @@ export default function HomePage() {
         body: JSON.stringify({ mealId: meal.id, date: meal.date, mealType: meal.meal_type }),
       });
       const json = await res.json();
-      if (res.ok && plan) {
-        // Refresh plan data
-        await loadData();
-      }
-    } catch (e) {
-      console.error('Regenerate error', e);
+      if (!res.ok) throw new Error(json.error ?? 'Meal regeneration failed. Please try again.');
+      // Refresh plan data to show the updated meal
+      await loadData();
+    } catch (e: unknown) {
+      setError((e as Error).message);
     }
   };
 
   const exportCalendar = async () => {
-    window.location.href = '/api/export-calendar';
+    const weekKey = weekStart.toISOString().split('T')[0];
+    window.location.href = `/api/export-calendar?weekStart=${weekKey}`;
   };
 
   const handleSignOut = async () => {
