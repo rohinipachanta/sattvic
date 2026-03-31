@@ -1,16 +1,16 @@
 'use client';
 export const dynamic = 'force-dynamic';
-;
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
 import StepFamily from '@/components/wizard/StepFamily';
 import StepHealth from '@/components/wizard/StepHealth';
 import StepPreferences from '@/components/wizard/StepPreferences';
-import type { WizardMemberDraft, FastingType, WizardState } from '@/types';
+import type { WizardMemberDraft, FastingType, WizardState, FamilyMember } from '@/types';
 
 const STEPS = [
-  { id: 1, label: 'Family',  icon: '👨‍👩‍👧‍👦', description: 'Who\'s in your family?' },
+  { id: 1, label: 'Family',  icon: '👨‍👩‍👧‍👦', description: "Who's in your family?" },
   { id: 2, label: 'Health',  icon: '💚',         description: 'Body type, conditions & goals' },
   { id: 3, label: 'Cuisine', icon: '🍽️',         description: 'Food preferences & fasting' },
 ];
@@ -32,6 +32,26 @@ function blankMember(): WizardMemberDraft {
   };
 }
 
+function memberToWizard(m: FamilyMember): WizardMemberDraft {
+  const ifGoal = (m.health_goals ?? []).find((g: string) => g.startsWith('if_'));
+  const baseGoals = (m.health_goals ?? []).filter((g: string) => !g.startsWith('if_'));
+  return {
+    id:                 m.id,
+    name:               m.name,
+    dob:                m.date_of_birth ?? '',
+    weight_kg:          m.weight_kg ?? undefined,
+    height_cm:          m.height_cm ?? undefined,
+    gender:             m.gender,
+    dietary_preference: m.dietary_preference ?? 'vegetarian',
+    activity_level:     m.activity_level ?? 'moderate',
+    dosha:              m.dosha ?? undefined,
+    health_conditions:  (m.health_conditions ?? []) as WizardMemberDraft['health_conditions'],
+    health_goals:       baseGoals as WizardMemberDraft['health_goals'],
+    cuisines:           (m.cuisine_preferences ?? m.cuisines ?? []) as WizardMemberDraft['cuisines'],
+    if_schedule:        ifGoal as WizardMemberDraft['if_schedule'],
+  };
+}
+
 const initialState: WizardState = {
   step: 1,
   members: [blankMember()],
@@ -42,9 +62,60 @@ const initialState: WizardState = {
 
 export default function SetupPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [state, setState] = useState<WizardState>(initialState);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoadingExisting(false); return; }
+
+        const { data: members } = await supabase
+          .from('family_members')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at');
+
+        const { data: userData } = await supabase
+          .from('users')
+          .select('location_zip, location_country')
+          .eq('id', user.id)
+          .single();
+
+        const { data: fastingData } = await supabase
+          .from('fasting_preferences')
+          .select('fasting_types')
+          .eq('user_id', user.id)
+          .single();
+
+        if (members && members.length > 0) {
+          setIsEditing(true);
+          setState({
+            step:          1,
+            members:       (members as FamilyMember[]).map(memberToWizard),
+            zip:           userData?.location_zip ?? '',
+            country:       (userData?.location_country ?? 'in').toLowerCase(),
+            fasting_types: (fastingData?.fasting_types ?? []) as FastingType[],
+          });
+        }
+      } catch (e) {
+        console.error('Error loading existing profile:', e);
+      } finally {
+        setLoadingExisting(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   const validateStep = (): string | null => {
     if (state.step === 1) {
@@ -93,26 +164,58 @@ export default function SetupPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Setup failed');
-      router.push('/home');
-    } catch (e: any) {
-      setError(e.message);
+      router.push(isEditing ? '/profile' : '/home');
+    } catch (e: unknown) {
+      setError((e as Error).message);
       setSubmitting(false);
     }
   };
 
+  if (loadingExisting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FFFDF8' }}>
+        <div className="text-center">
+          <div className="text-4xl mb-3 animate-pulse">🌿</div>
+          <p className="text-gray-400 text-sm">Loading your profile…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#FFFDF8' }}>
-      {/* Header */}
-      <header className="border-b border-amber-100 px-4 h-14 flex items-center"
-        style={{ background: 'rgba(255,253,248,0.95)' }}>
-        <div className="max-w-lg mx-auto w-full flex items-center gap-2">
-          <span className="text-xl">🌿</span>
-          <span className="font-bold" style={{ color: '#E8793A' }}>Sattvic</span>
-          <span className="text-xs text-gray-400 ml-1">· Family Setup</span>
+      <header className="border-b border-amber-100 px-4 h-14 flex items-center sticky top-0 z-40"
+        style={{ background: 'rgba(255,253,248,0.95)', backdropFilter: 'blur(8px)' }}>
+        <div className="max-w-lg mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🌿</span>
+            <span className="font-bold" style={{ color: '#E8793A' }}>Sattvic</span>
+            <span className="text-xs text-gray-400 ml-1">
+              · {isEditing ? 'Edit Profile' : 'Family Setup'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {isEditing && (
+              <a href="/profile" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                Cancel
+              </a>
+            )}
+            <button onClick={handleSignOut}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6">
+        {isEditing && (
+          <div className="mb-5 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+            style={{ background: '#FEF0E6', border: '1px solid #FDDCB9', color: '#C25E1A' }}>
+            ✏️ Editing your family profile — changes will be saved when you finish.
+          </div>
+        )}
+
         {/* Step indicators */}
         <div className="flex items-center justify-between mb-6">
           {STEPS.map((step, idx) => {
@@ -142,7 +245,6 @@ export default function SetupPage() {
           })}
         </div>
 
-        {/* Error */}
         {error && (
           <div className="mb-4 px-4 py-3 rounded-xl text-sm text-red-700"
             style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
@@ -150,7 +252,6 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step content */}
         <div className="mb-8">
           {state.step === 1 && (
             <StepFamily
@@ -178,7 +279,6 @@ export default function SetupPage() {
           )}
         </div>
 
-        {/* Navigation */}
         <div className="flex items-center justify-between">
           {state.step > 1 ? (
             <button onClick={prev}
@@ -198,7 +298,7 @@ export default function SetupPage() {
             <button onClick={handleSubmit} disabled={submitting}
               className="px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ background: '#E8793A', borderRadius: '50px' }}>
-              {submitting ? '✨ Saving…' : '🌿 Save & Get My Meal Plan'}
+              {submitting ? '✨ Saving…' : isEditing ? '💾 Save Changes' : '🌿 Save & Get My Meal Plan'}
             </button>
           )}
         </div>
