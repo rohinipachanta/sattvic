@@ -30,18 +30,18 @@ const TEXT_CONFIG: GenerationConfig = {
  */
 export function getJsonModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-1.5-flash',
     generationConfig: JSON_CONFIG,
   })
 }
 
 /**
- * Get the Gemini 2.0 Flash model for text responses.
+ * Get the Gemini 1.5 Flash model for text responses.
  * Use this for explanations, dosha quiz scoring, etc.
  */
 export function getTextModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-1.5-flash',
     generationConfig: TEXT_CONFIG,
   })
 }
