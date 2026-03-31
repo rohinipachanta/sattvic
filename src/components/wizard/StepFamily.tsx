@@ -42,6 +42,28 @@ function blankMember(): WizardMemberDraft {
 
 export default function StepFamily({ members, onChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(members[0]?.id ?? null);
+  // Track unit preference per member (kg or lbs) — stored locally, weight_kg always saved in kg
+  const [unitPref, setUnitPref] = useState<Record<string, 'kg' | 'lbs'>>({});
+
+  const getUnit = (id: string) => unitPref[id] ?? 'kg';
+  const setUnit = (id: string, unit: 'kg' | 'lbs') =>
+    setUnitPref(prev => ({ ...prev, [id]: unit }));
+
+  // Display value: convert kg→lbs for display if user chose lbs
+  const displayWeight = (member: WizardMemberDraft) => {
+    if (!member.weight_kg) return '';
+    return getUnit(member.id) === 'lbs'
+      ? Math.round(member.weight_kg * 2.20462).toString()
+      : member.weight_kg.toString();
+  };
+
+  // On input: convert lbs→kg before storing
+  const handleWeightChange = (id: string, raw: string) => {
+    if (!raw) { updateMember(id, { weight_kg: undefined }); return; }
+    const val = parseFloat(raw);
+    const kg = getUnit(id) === 'lbs' ? +(val / 2.20462).toFixed(1) : val;
+    updateMember(id, { weight_kg: kg });
+  };
 
   const addMember = () => {
     const m = blankMember();
@@ -123,11 +145,31 @@ export default function StepFamily({ members, onChange }: Props) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Weight (kg)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-600">Weight</label>
+                      {/* kg / lbs toggle */}
+                      <div className="flex rounded-lg overflow-hidden border text-xs" style={{ borderColor: '#F5E9D6' }}>
+                        {(['kg', 'lbs'] as const).map(u => (
+                          <button key={u} type="button"
+                            onClick={() => setUnit(member.id, u)}
+                            className="px-2 py-0.5 transition-colors"
+                            style={{
+                              background: getUnit(member.id) === u ? '#E8793A' : 'white',
+                              color: getUnit(member.id) === u ? 'white' : '#6b5b45',
+                              fontWeight: getUnit(member.id) === u ? 600 : 400,
+                            }}>
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <input
-                      type="number" placeholder="e.g. 65" min={5} max={300}
-                      value={member.weight_kg ?? ''}
-                      onChange={e => updateMember(member.id, { weight_kg: e.target.value ? +e.target.value : undefined })}
+                      type="number"
+                      placeholder={getUnit(member.id) === 'kg' ? 'e.g. 65' : 'e.g. 143'}
+                      min={getUnit(member.id) === 'kg' ? 5 : 11}
+                      max={getUnit(member.id) === 'kg' ? 300 : 660}
+                      value={displayWeight(member)}
+                      onChange={e => handleWeightChange(member.id, e.target.value)}
                       className="w-full px-3 py-2 rounded-xl text-sm border bg-white focus:outline-none"
                       style={{ border: '1.5px solid #F5E9D6' }}
                     />
