@@ -30,7 +30,7 @@ const TEXT_CONFIG: GenerationConfig = {
  */
 export function getJsonModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     generationConfig: JSON_CONFIG,
   })
 }
@@ -41,7 +41,7 @@ export function getJsonModel() {
  */
 export function getTextModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     generationConfig: TEXT_CONFIG,
   })
 }

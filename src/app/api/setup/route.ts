@@ -109,11 +109,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 6. Upsert fasting preferences ──
-    await supabase.from('fasting_preferences').upsert({
+    const { error: fastingError } = await supabase.from('fasting_preferences').upsert({
       user_id:          user.id,
       fasting_types:    fasting_types ?? [],
-      strictness_level: fasting_strictness ?? 'moderate',
+      strictness_level: fasting_strictness ?? 'standard',  // 'standard' is the valid default
     }, { onConflict: 'user_id' })
+
+    if (fastingError) {
+      console.error('Fasting prefs upsert error:', fastingError)
+      // Non-fatal — log but don't block setup completion
+    }
 
     return NextResponse.json({
       success: true,
