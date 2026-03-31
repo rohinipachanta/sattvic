@@ -44,6 +44,8 @@ export default function StepFamily({ members, onChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(members[0]?.id ?? null);
   // Track unit preference per member (kg or lbs) — stored locally, weight_kg always saved in kg
   const [unitPref, setUnitPref] = useState<Record<string, 'kg' | 'lbs'>>({});
+  // Track height unit preference per member (cm or ft) — stored locally, height_cm always saved in cm
+  const [heightUnitPref, setHeightUnitPref] = useState<Record<string, 'cm' | 'ft'>>({});
 
   const getUnit = (id: string) => unitPref[id] ?? 'kg';
   const setUnit = (id: string, unit: 'kg' | 'lbs') =>
@@ -63,6 +65,32 @@ export default function StepFamily({ members, onChange }: Props) {
     const val = parseFloat(raw);
     const kg = getUnit(id) === 'lbs' ? +(val / 2.20462).toFixed(1) : val;
     updateMember(id, { weight_kg: kg });
+  };
+
+  const getHeightUnit = (id: string) => heightUnitPref[id] ?? 'cm';
+  const setHeightUnit = (id: string, unit: 'cm' | 'ft') =>
+    setHeightUnitPref(prev => ({ ...prev, [id]: unit }));
+
+  // Display height: cm as-is, or split into ft + in
+  const displayHeightFt = (member: WizardMemberDraft) => {
+    if (!member.height_cm) return '';
+    return Math.floor(member.height_cm / 30.48).toString();
+  };
+  const displayHeightIn = (member: WizardMemberDraft) => {
+    if (!member.height_cm) return '';
+    return Math.round((member.height_cm % 30.48) / 2.54).toString();
+  };
+
+  // On input: convert ft/in → cm before storing
+  const handleHeightCmChange = (id: string, raw: string) => {
+    if (!raw) { updateMember(id, { height_cm: undefined }); return; }
+    updateMember(id, { height_cm: parseFloat(raw) });
+  };
+  const handleHeightFtInChange = (id: string, member: WizardMemberDraft, field: 'ft' | 'in', raw: string) => {
+    const ft = field === 'ft' ? (parseFloat(raw) || 0) : Math.floor((member.height_cm ?? 0) / 30.48);
+    const inches = field === 'in' ? (parseFloat(raw) || 0) : Math.round(((member.height_cm ?? 0) % 30.48) / 2.54);
+    const cm = +(ft * 30.48 + inches * 2.54).toFixed(1);
+    updateMember(id, { height_cm: cm || undefined });
   };
 
   const addMember = () => {
@@ -175,14 +203,56 @@ export default function StepFamily({ members, onChange }: Props) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Height (cm)</label>
-                    <input
-                      type="number" placeholder="e.g. 165" min={50} max={250}
-                      value={member.height_cm ?? ''}
-                      onChange={e => updateMember(member.id, { height_cm: e.target.value ? +e.target.value : undefined })}
-                      className="w-full px-3 py-2 rounded-xl text-sm border bg-white focus:outline-none"
-                      style={{ border: '1.5px solid #F5E9D6' }}
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-600">Height</label>
+                      {/* cm / ft toggle */}
+                      <div className="flex rounded-lg overflow-hidden border text-xs" style={{ borderColor: '#F5E9D6' }}>
+                        {(['cm', 'ft'] as const).map(u => (
+                          <button key={u} type="button"
+                            onClick={() => setHeightUnit(member.id, u)}
+                            className="px-2 py-0.5 transition-colors"
+                            style={{
+                              background: getHeightUnit(member.id) === u ? '#E8793A' : 'white',
+                              color: getHeightUnit(member.id) === u ? 'white' : '#6b5b45',
+                              fontWeight: getHeightUnit(member.id) === u ? 600 : 400,
+                            }}>
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {getHeightUnit(member.id) === 'cm' ? (
+                      <input
+                        type="number" placeholder="e.g. 165" min={50} max={250}
+                        value={member.height_cm ?? ''}
+                        onChange={e => handleHeightCmChange(member.id, e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-sm border bg-white focus:outline-none"
+                        style={{ border: '1.5px solid #F5E9D6' }}
+                      />
+                    ) : (
+                      <div className="flex gap-1.5">
+                        <div className="relative flex-1">
+                          <input
+                            type="number" placeholder="5" min={1} max={8}
+                            value={displayHeightFt(member)}
+                            onChange={e => handleHeightFtInChange(member.id, member, 'ft', e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl text-sm border bg-white focus:outline-none pr-7"
+                            style={{ border: '1.5px solid #F5E9D6' }}
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">ft</span>
+                        </div>
+                        <div className="relative flex-1">
+                          <input
+                            type="number" placeholder="6" min={0} max={11}
+                            value={displayHeightIn(member)}
+                            onChange={e => handleHeightFtInChange(member.id, member, 'in', e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl text-sm border bg-white focus:outline-none pr-7"
+                            style={{ border: '1.5px solid #F5E9D6' }}
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">in</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

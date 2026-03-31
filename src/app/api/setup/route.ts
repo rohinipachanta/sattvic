@@ -31,15 +31,17 @@ export async function POST(request: NextRequest) {
       locationData = await resolveZipToLocation(location_zip, location_country)
     }
 
-    // ── 2. Update user's location ──
-    await supabase.from('users').update({
+    // ── 2. Upsert user's location (upsert ensures the row exists for FK) ──
+    await supabase.from('users').upsert({
+      id:                user.id,
+      email:             user.email,
       location_zip:      location_zip || null,
       location_lat:      locationData?.lat ?? null,
       location_lng:      locationData?.lng ?? null,
       location_city:     locationData?.city ?? null,
       location_country:  locationData?.country ?? location_country ?? null,
       location_timezone: locationData?.timezone ?? null,
-    }).eq('id', user.id)
+    }, { onConflict: 'id' })
 
     // ── 3. Delete existing family members (fresh setup) ──
     await supabase.from('family_members').delete().eq('user_id', user.id)
