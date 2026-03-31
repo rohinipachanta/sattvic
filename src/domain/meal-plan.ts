@@ -197,7 +197,57 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanation):
 }
 
 /**
- * Validate the parsed Gemini response to ensure it has the right structure.
+ * Normalize a single day's meals into an array.
+ * Gemini may return meals as an object { breakfast: {...}, lunch: {...}, dinner: {...} }
+ * or as an array [ { meal_type: 'breakfast', ... }, ... ].
+ * The UI always expects an array with a meal_type field on each item.
+ */
+function normalizeMeals(day: Record<string, unknown>): DayPlan['meals'] {
+  const meals = day.meals
+  if (Array.isArray(meals)) {
+    // Already an array — ensure each item has meal_type and date
+    return meals.map((m: unknown) => {
+      const meal = m as Record<string, unknown>
+      return {
+        ...meal,
+        meal_type: meal.meal_type ?? undefined,
+        date: meal.date ?? day.date,
+        id: meal.id ?? `${day.date}_${meal.meal_type ?? 'meal'}`,
+      } as DayPlan['meals'][number]
+    })
+  }
+
+  if (meals && typeof meals === 'object') {
+    // Object form — convert { breakfast: {...}, lunch: {...}, dinner: {...} } → array
+    const mealsObj = meals as Record<string, unknown>
+    return (['breakfast', 'lunch', 'dinner', 'snack'] as const)
+      .filter(type => mealsObj[type] != null)
+      .map(type => {
+        const m = mealsObj[type] as Record<string, unknown>
+        return {
+          ...m,
+          meal_type: type,
+          date: m.date ?? day.date,
+          id: m.id ?? `${day.date}_${type}`,
+          // Flatten nutrition fields if they are at root level
+          nutrition: m.nutrition ?? {
+            calories:  m.calories,
+            protein_g: m.protein_g,
+            carbs_g:   m.carbs_g,
+            fat_g:     m.fat_g,
+            fibre_g:   m.fiber_g ?? m.fibre_g,
+            sodium_mg: m.sodium_mg,
+          },
+        } as DayPlan['meals'][number]
+      })
+  }
+
+  return []
+}
+
+/**
+ * Validate the parsed Gemini response to ensure it has the right structure,
+ * and normalize meals from object form to array form.
  * Returns null if invalid, the typed plan if valid.
  */
 export function validateMealPlanResponse(
@@ -206,10 +256,15 @@ export function validateMealPlanResponse(
   if (!parsed || typeof parsed !== 'object') return null
   const obj = parsed as Record<string, unknown>
   if (!Array.isArray(obj.week) || obj.week.length !== 7) return null
-  // Basic structure check
+  // Validate structure and normalize each day's meals
+  const normalizedWeek: DayPlan[] = []
   for (const day of obj.week as unknown[]) {
     const d = day as Record<string, unknown>
     if (!d.date || !d.meals) return null
+    normalizedWeek.push({
+      ...(d as unknown as DayPlan),
+      meals: normalizeMeals(d),
+    })
   }
-  return parsed as { week: DayPlan[] }
+  return { week: normalizedWeek }
 }
