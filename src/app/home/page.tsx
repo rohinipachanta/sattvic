@@ -442,6 +442,7 @@ export default function HomePage() {
             </button>
           </div>
         ) : (
+          <>
           {/* Mobile protein strip — shown only on small screens */}
           {proteinTargets.length > 0 && plan && (
             <div className="sm:hidden flex gap-3 mb-4 overflow-x-auto pb-1">
@@ -513,6 +514,7 @@ export default function HomePage() {
               </div>
             )}
           </div>
+          </>
         )}
       </main>
 
