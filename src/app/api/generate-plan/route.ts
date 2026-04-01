@@ -75,11 +75,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Body is optional — frontend may POST with no body when using defaults
-    let body: { weekStart?: string; startDay?: number; dayCount?: number } = {}
+    let body: { weekStart?: string; startDay?: number; dayCount?: number; avoidMeals?: string[] } = {}
     try { body = await request.json() } catch { /* empty body is fine */ }
     const weekStartDate: string | undefined = body.weekStart
     const startDay = typeof body.startDay === 'number' ? body.startDay : 0
     const dayCount = typeof body.dayCount === 'number' ? body.dayCount : 2
+    const avoidMeals: string[] = Array.isArray(body.avoidMeals) ? body.avoidMeals : []
 
     // ── Load user data from Supabase ──
     const [membersResult, fastingResult, userResult] = await Promise.all([
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
         .filter((v, i, arr) => arr.indexOf(v) === i) as never[],
       startDay,
       dayCount,
+      avoidMeals,
     })
 
     // ── Call Gemini via direct REST (no SDK) ──

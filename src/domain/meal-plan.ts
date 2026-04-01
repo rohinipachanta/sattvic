@@ -75,12 +75,15 @@ export interface PromptParams {
   startDay?:     number
   /** how many days to generate — default 7 */
   dayCount?:     number
+  /** meal names already generated this week — AI must not repeat these */
+  avoidMeals?:   string[]
 }
 
 export function buildMealPlanPrompt(params: PromptParams): string {
   const { familyMembers, fastingDays, weekStart, hemisphere, cuisines } = params
   const actualStartDay = params.startDay ?? 0
   const actualDayCount = params.dayCount ?? 7
+  const avoidMeals = params.avoidMeals ?? []
   const season = getCurrentSeason(weekStart, hemisphere)
   const weekDates = Array.from({ length: actualDayCount }, (_, i) => {
     const d = new Date(weekStart)
@@ -151,6 +154,7 @@ ${cuisineSection}
 6. Meals should be realistic Indian home cooking — not restaurant food or exotic recipes.
 7. Mark each meal's Ayurvedic Guna (sattvik / rajasic / tamasic) and primary dosha effect.
 8. Include goal_alignment array listing which health goals this meal supports.
+${avoidMeals.length > 0 ? `9. CRITICAL: Do NOT repeat any of these dishes already planned this week: ${avoidMeals.join(', ')}` : ''}
 
 ## Response Format
 Return ONLY valid JSON in this exact structure (no markdown, no explanation):

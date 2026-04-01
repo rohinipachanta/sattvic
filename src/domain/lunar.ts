@@ -292,19 +292,50 @@ function isFastingDay(
   const month = date.getMonth() + 1
 
   switch (fastType) {
-    case 'ekadashi':
-      // Ekadashi falls roughly on the 11th and 26th of each month
-      // Real calculation uses lunar tithi 11 of each paksha
+    case 'ekadashi': {
+      // Known Ekadashi dates for 2026 (from panchang — two per month)
+      const EKADASHI_2026 = new Set([
+        '2026-01-10', '2026-01-26',
+        '2026-02-09', '2026-02-25',
+        '2026-03-10', '2026-03-26',
+        '2026-04-09', '2026-04-25',
+        '2026-05-08', '2026-05-24',
+        '2026-06-07', '2026-06-23',
+        '2026-07-06', '2026-07-22',
+        '2026-08-05', '2026-08-21',
+        '2026-09-03', '2026-09-20',
+        '2026-10-02', '2026-10-19',
+        '2026-11-01', '2026-11-18',
+        '2026-12-01', '2026-12-17', '2026-12-30',
+      ])
+      const dateStr = format(date, 'yyyy-MM-dd')
+      if (date.getFullYear() === 2026) return EKADASHI_2026.has(dateStr)
+      // Fallback for other years — rough approximation (11th and 26th of solar month)
       return dayOfMonth === 11 || dayOfMonth === 26
+    }
 
-    case 'navratri':
-      // Spring Navratri: late March–early April (roughly)
-      // Autumn Navratri: late September–early October (roughly)
-      // Real calculation: Pratipada to Navami of Chaitra/Ashvin Shukla
+    case 'navratri': {
+      // Accurate Navratri dates by year (from official panchang sources)
+      // Format: [springStart, springEnd, autumnStart, autumnEnd] as MM-DD
+      const NAVRATRI_BY_YEAR: Record<number, [string, string, string, string]> = {
+        2024: ['03-09', '03-17', '10-03', '10-12'],
+        2025: ['03-30', '04-07', '10-02', '10-11'],
+        2026: ['03-19', '03-27', '10-13', '10-22'], // Chaitra: Mar 19–27 (confirmed)
+        2027: ['03-22', '03-30', '10-01', '10-09'], // approximate
+      }
+      const year = date.getFullYear()
+      const mmdd = format(date, 'MM-dd')
+      const ranges = NAVRATRI_BY_YEAR[year]
+      if (ranges) {
+        const [ss, se, as_, ae] = ranges
+        return (mmdd >= ss && mmdd <= se) || (mmdd >= as_ && mmdd <= ae)
+      }
+      // Fallback for unlisted years (rough approximation)
       return (month === 3 && dayOfMonth >= 22) ||
              (month === 4 && dayOfMonth <= 2) ||
              (month === 9 && dayOfMonth >= 22) ||
              (month === 10 && dayOfMonth <= 2)
+    }
 
     case 'pradosham':
       // Pradosham falls on Tithi 13 of each paksha (roughly 13th and 28th)

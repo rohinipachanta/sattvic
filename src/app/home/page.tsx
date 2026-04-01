@@ -278,11 +278,11 @@ export default function HomePage() {
     const weekKey = weekStart.toISOString().split('T')[0];
     let weekFastingDays: FastingDay[] = [];
 
-    const fetchBatch = async (startDay: number, dayCount: number) => {
+    const fetchBatch = async (startDay: number, dayCount: number, avoidMeals: string[] = []) => {
       const res = await fetch('/api/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weekStart: weekKey, startDay, dayCount }),
+        body: JSON.stringify({ weekStart: weekKey, startDay, dayCount, avoidMeals }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `Days ${startDay}–${startDay + dayCount - 1} failed`);
@@ -297,11 +297,16 @@ export default function HomePage() {
       weekFastingDays = json0.fastingDays ?? [];
       setFastingDays(weekFastingDays);
 
-      // Next batches in parallel
+      // Extract meal names from batch 0 to avoid repetition in later batches
+      const usedMeals: string[] = (json0.days as DayPlan[])
+        .flatMap(d => d.meals.map(m => m.name))
+        .filter(Boolean);
+
+      // Next batches in parallel — pass used meals so AI avoids repeating them
       await Promise.all([
-        fetchBatch(2, 2),
-        fetchBatch(4, 2),
-        fetchBatch(6, 1),
+        fetchBatch(2, 2, usedMeals),
+        fetchBatch(4, 2, usedMeals),
+        fetchBatch(6, 1, usedMeals),
       ]);
 
       const allDays = collected.filter(Boolean) as DayPlan[];
