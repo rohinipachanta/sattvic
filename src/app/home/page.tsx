@@ -164,13 +164,18 @@ function DayRowSkeleton({ date }: { date: Date }) {
   );
 }
 
-// ─── Meal card ────────────────────────────────────────────────────────────────
-function MealCard({ meal, onClick }: { meal: Meal; onClick: () => void }) {
+// ─── Meal card (compact, tappable) ───────────────────────────────────────────
+function MealCard({ meal, isExpanded, onClick }: { meal: Meal; isExpanded: boolean; onClick: () => void }) {
   const emojiMap: Record<string, string> = { breakfast:'☀️', lunch:'🌤️', dinner:'🌙', snack:'🍎' };
   const n = meal.nutrition;
   return (
     <button onClick={onClick}
-      className="w-full text-left p-3 rounded-xl bg-white active:bg-gray-50 hover:shadow-md transition-shadow duration-200 border border-gray-100 flex flex-col sm:h-full">
+      className="w-full text-left p-3 rounded-xl transition-all duration-200 flex flex-col sm:h-full"
+      style={{
+        background: isExpanded ? '#FEF3E8' : 'white',
+        border: isExpanded ? '1.5px solid #E8793A' : '1px solid #F0E8D8',
+        boxShadow: isExpanded ? '0 2px 10px rgba(232,121,58,0.12)' : undefined,
+      }}>
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-sm">{emojiMap[meal.meal_type ?? ''] ?? '🍽️'}</span>
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 capitalize">{meal.meal_type}</span>
@@ -178,8 +183,9 @@ function MealCard({ meal, onClick }: { meal: Meal; onClick: () => void }) {
           <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full text-purple-700 shrink-0"
             style={{ background: '#F3EAF7', border: '1px solid #9B6BB5' }}>Fast</span>
         )}
+        <span className="ml-auto text-xs text-gray-300">{isExpanded ? '▲' : '▼'}</span>
       </div>
-      <div className="font-semibold text-sm text-gray-800 leading-snug mb-1.5 sm:line-clamp-2">{meal.name}</div>
+      <div className="font-semibold text-sm leading-snug mb-1.5" style={{ color: isExpanded ? '#C4581A' : '#1f2937' }}>{meal.name}</div>
       {n && (
         <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-gray-400 mt-auto">
           {n.calories  && <span>🔥 {n.calories} kcal</span>}
@@ -190,8 +196,129 @@ function MealCard({ meal, onClick }: { meal: Meal; onClick: () => void }) {
   );
 }
 
+// ─── Recipe panel (expanded inline) ──────────────────────────────────────────
+function RecipePanel({ meal, onClose, onRegenerate }: {
+  meal: Meal; onClose: () => void; onRegenerate: (meal: Meal) => void;
+}) {
+  const n = meal.nutrition;
+  return (
+    <div className="mt-2 rounded-2xl overflow-hidden" style={{ border: '1.5px solid #E8793A', background: '#FFFDF8' }}>
+
+      {/* Header */}
+      <div className="px-4 py-3 flex items-start justify-between gap-2"
+        style={{ background: '#FEF3E8', borderBottom: '1px solid #F5D5B0' }}>
+        <div>
+          <h3 className="font-bold text-base" style={{ color: '#2C2416' }}>{meal.name}</h3>
+          <p className="text-xs text-gray-500 mt-0.5 capitalize">
+            {meal.meal_type}{meal.cuisine ? ` · ${meal.cuisine} cuisine` : ''}
+            {meal.ayurvedic_guna ? ` · ${meal.ayurvedic_guna}` : ''}
+          </p>
+        </div>
+        <button onClick={onClose}
+          className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-orange-100 transition-colors text-lg leading-none">
+          ×
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4">
+
+        {/* Description */}
+        {meal.description && (
+          <p className="text-sm text-gray-600 leading-relaxed">{meal.description}</p>
+        )}
+
+        {/* Nutrition grid */}
+        {n && (n.calories || n.protein_g || n.carbs_g || n.fat_g) && (
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'Calories', value: n.calories,  unit: 'kcal', color: '#E8793A' },
+              { label: 'Protein',  value: n.protein_g, unit: 'g',    color: '#5B8DD9' },
+              { label: 'Carbs',    value: n.carbs_g,   unit: 'g',    color: '#F5A623' },
+              { label: 'Fat',      value: n.fat_g,     unit: 'g',    color: '#4A7C59' },
+            ].map(s => s.value ? (
+              <div key={s.label} className="text-center p-2 rounded-xl" style={{ background: '#FDF6EC' }}>
+                <div className="text-base font-bold" style={{ color: s.color }}>{s.value}</div>
+                <div className="text-xs text-gray-400">{s.unit}</div>
+                <div className="text-xs text-gray-500">{s.label}</div>
+              </div>
+            ) : null)}
+          </div>
+        )}
+
+        {/* Ingredients */}
+        {meal.ingredients && meal.ingredients.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-sm mb-2" style={{ color: '#2C2416' }}>🥘 Ingredients</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+              {meal.ingredients.map((ing, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: '#E8793A' }} />
+                  {String(ing)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Instructions */}
+        {meal.instructions && meal.instructions.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-sm mb-2" style={{ color: '#2C2416' }}>👩‍🍳 Method</h4>
+            <ol className="space-y-2.5">
+              {meal.instructions.map((step, i) => (
+                <li key={i} className="flex gap-2.5 text-sm text-gray-600 leading-relaxed">
+                  <span className="shrink-0 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center font-bold mt-0.5"
+                    style={{ background: '#E8793A' }}>{i + 1}</span>
+                  {String(step)}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {/* Ayurvedic notes */}
+        {meal.ayurvedic_notes && (
+          <div className="p-3 rounded-xl text-sm" style={{ background: '#F0F7F3', border: '1px solid #B7D9C5' }}>
+            <span className="font-semibold text-green-800">🌿 Ayurvedic note: </span>
+            <span className="text-green-700">{meal.ayurvedic_notes}</span>
+          </div>
+        )}
+
+        {/* Accompaniments */}
+        {meal.accompaniments && meal.accompaniments.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-sm mb-2" style={{ color: '#2C2416' }}>🍃 Dosha-Balancing Sides</h4>
+            <div className="space-y-1.5">
+              {meal.accompaniments.map((acc, i) => (
+                <div key={i} className="p-2.5 rounded-xl text-sm" style={{ background: '#FDF6EC', border: '1px solid #F0E0C8' }}>
+                  <span className="font-medium text-gray-800">{acc.name}</span>
+                  {(acc.benefit || acc.reason) && (
+                    <span className="text-gray-500"> — {acc.benefit ?? acc.reason}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Regenerate */}
+        <button onClick={() => { onClose(); onRegenerate(meal); }}
+          className="w-full py-2.5 text-sm font-semibold border transition-colors hover:bg-orange-50"
+          style={{ border: '1.5px solid #E8793A', color: '#E8793A', borderRadius: '50px' }}>
+          🔄 Regenerate this meal
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
 // ─── Day row ──────────────────────────────────────────────────────────────────
-function DayRow({ day, isFasting, onClick }: { day: DayPlan; isFasting: boolean; onClick: (meal: Meal) => void }) {
+function DayRow({ day, isFasting, onRegenerate }: {
+  day: DayPlan; isFasting: boolean; onRegenerate: (meal: Meal) => void;
+}) {
+  const [expandedType, setExpandedType] = useState<string | null>(null);
+
   const date    = new Date(day.date + 'T12:00:00');
   const dayName = date.toLocaleDateString('en-IN', { weekday: 'long' });
   const dayNum  = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -203,6 +330,10 @@ function DayRow({ day, isFasting, onClick }: { day: DayPlan; isFasting: boolean;
     : { background: '#FDF6EC', borderBottom: '1px solid #F5E9D6' };
   const headerText = isFasting ? 'text-purple-800' : isToday ? 'text-white' : 'text-gray-700';
 
+  const expandedMeal = expandedType ? day.meals.find(m => m.meal_type === expandedType) ?? null : null;
+
+  const toggle = (type: string) => setExpandedType(p => p === type ? null : type);
+
   return (
     <div className="rounded-2xl overflow-hidden mb-4" style={{ border: '1px solid #F0E8D8' }}>
       <div className={`px-5 py-3 flex items-center gap-3 ${headerText}`} style={headerStyle}>
@@ -211,109 +342,26 @@ function DayRow({ day, isFasting, onClick }: { day: DayPlan; isFasting: boolean;
         {isToday && <span className="ml-1 text-xs font-semibold opacity-90 bg-white bg-opacity-25 px-2 py-0.5 rounded-full">Today</span>}
         {isFasting && <span className="ml-auto text-sm">🙏 Fasting day</span>}
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 p-3 sm:p-4" style={{ background: '#FFFDF8' }}>
         {(['breakfast','lunch','dinner'] as const).map(type => {
           const meal = day.meals.find(m => m.meal_type === type);
           return meal
-            ? <MealCard key={type} meal={meal} onClick={() => onClick(meal)} />
+            ? <MealCard key={type} meal={meal} isExpanded={expandedType === type} onClick={() => toggle(type)} />
             : <div key={type} className="rounded-xl bg-gray-50 border border-gray-100 h-16 sm:h-24 flex items-center justify-center text-xs text-gray-300">No {type}</div>;
         })}
       </div>
-    </div>
-  );
-}
 
-// ─── Meal detail modal ────────────────────────────────────────────────────────
-function MealDetailModal({ meal, onClose, onRegenerate }: {
-  meal: Meal; members: FamilyMember[]; onClose: () => void; onRegenerate: (meal: Meal) => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background: 'rgba(44,36,22,0.5)' }} onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-2xl"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-charcoal">{meal.name}</h2>
-            <span className="text-sm text-gray-500 capitalize">{meal.meal_type} · {meal.cuisine} cuisine</span>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      {/* Inline recipe panel */}
+      {expandedMeal && (
+        <div className="px-3 pb-4 sm:px-4" style={{ background: '#FFFDF8' }}>
+          <RecipePanel
+            meal={expandedMeal}
+            onClose={() => setExpandedType(null)}
+            onRegenerate={onRegenerate}
+          />
         </div>
-
-        {meal.description && <p className="text-sm text-gray-600 mb-4">{meal.description}</p>}
-
-        {meal.nutrition && (
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            {[
-              { label: 'Calories', value: meal.nutrition.calories,  unit: 'kcal', color: '#E8793A' },
-              { label: 'Protein',  value: meal.nutrition.protein_g, unit: 'g',   color: '#5B8DD9' },
-              { label: 'Carbs',    value: meal.nutrition.carbs_g,   unit: 'g',   color: '#F5A623' },
-              { label: 'Fat',      value: meal.nutrition.fat_g,     unit: 'g',   color: '#4A7C59' },
-            ].map(n => n.value && (
-              <div key={n.label} className="text-center p-2 rounded-xl" style={{ background: '#FDF6EC' }}>
-                <div className="text-lg font-bold" style={{ color: n.color }}>{n.value}</div>
-                <div className="text-xs text-gray-400">{n.unit}</div>
-                <div className="text-xs text-gray-500">{n.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {meal.ingredients && meal.ingredients.length > 0 && (
-          <div className="mb-4">
-            <h3 className="font-semibold text-sm text-charcoal mb-2">Ingredients</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              {meal.ingredients.map((ing, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#E8793A' }} />{ing}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {meal.instructions && meal.instructions.length > 0 && (
-          <div className="mb-4">
-            <h3 className="font-semibold text-sm text-charcoal mb-2">Instructions</h3>
-            <ol className="text-sm text-gray-600 space-y-2">
-              {meal.instructions.map((step, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="shrink-0 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center font-bold"
-                    style={{ background: '#E8793A' }}>{i + 1}</span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {meal.accompaniments && meal.accompaniments.length > 0 && (
-          <div className="mb-4">
-            <h3 className="font-semibold text-sm text-charcoal mb-2">Dosha-Balancing Accompaniments</h3>
-            <div className="space-y-2">
-              {meal.accompaniments.map((acc, i) => (
-                <div key={i} className="text-sm p-2 rounded-lg" style={{ background: '#FDF6EC' }}>
-                  <span className="font-medium">{acc.name}</span>
-                  {acc.benefit && <span className="text-gray-500"> — {acc.benefit}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-3 mt-4">
-          <button onClick={() => onRegenerate(meal)}
-            className="flex-1 py-2.5 text-sm font-semibold border transition-colors hover:bg-gray-50"
-            style={{ border: '1.5px solid #E8793A', color: '#E8793A', borderRadius: '50px' }}>
-            🔄 Regenerate Meal
-          </button>
-          <button onClick={onClose}
-            className="flex-1 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: '#E8793A', borderRadius: '50px' }}>
-            Done
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -337,7 +385,6 @@ export default function HomePage() {
   const [proteinTargets, setProteinTargets] = useState<ProteinTarget[]>([]);
   const [loading, setLoading]             = useState(false);
   const [generating, setGenerating]       = useState(false);
-  const [selectedMeal, setSelectedMeal]   = useState<Meal | null>(null);
   const [error, setError]                 = useState<string | null>(null);
   const [userName, setUserName]           = useState('');
   const [partialDays, setPartialDays]     = useState<(DayPlan | null)[] | null>(null);
@@ -481,7 +528,6 @@ export default function HomePage() {
   };
 
   const handleRegenerate = async (meal: Meal) => {
-    setSelectedMeal(null);
     setError(null);
     try {
       const res = await fetch('/api/regenerate-meal', {
@@ -683,7 +729,7 @@ export default function HomePage() {
               <div className="flex-1">
                 {displayRows.map((day, i) =>
                   day
-                    ? <DayRow key={day.date} day={day} isFasting={fastingDayDates.has(day.date)} onClick={setSelectedMeal} />
+                    ? <DayRow key={day.date} day={day} isFasting={fastingDayDates.has(day.date)} onRegenerate={handleRegenerate} />
                     : <DayRowSkeleton key={i} date={weekDayDates[i]} />
                 )}
 
@@ -728,14 +774,6 @@ export default function HomePage() {
         )}
       </main>
 
-      {selectedMeal && (
-        <MealDetailModal
-          meal={selectedMeal}
-          members={members}
-          onClose={() => setSelectedMeal(null)}
-          onRegenerate={handleRegenerate}
-        />
-      )}
     </div>
   );
 }
