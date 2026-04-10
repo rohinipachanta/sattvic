@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase';
 import { calcAllProteinTargets } from '@/domain/protein';
 import { formatWeekRange, getWeekStart } from '@/domain/lunar';
@@ -42,10 +42,21 @@ function buildGroceryList(days: DayPlan[]): Record<string, string[]> {
   return grouped;
 }
 
-function GroceryList({ days }: { days: DayPlan[] }) {
+function buildShareText(grouped: Record<string, string[]>): string {
+  const lines = ['🛒 Grocery List — Sattvic', ''];
+  for (const [cat, items] of Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(cat);
+    [...items].sort().forEach(i => lines.push(`  • ${i}`));
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
+
+function GroceryList({ days, listRef }: { days: DayPlan[]; listRef?: React.RefObject<HTMLDivElement> }) {
   const grouped = buildGroceryList(days);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [copyLabel, setCopyLabel] = useState('📋 Copy');
   const total = Object.values(grouped).reduce((s, a) => s + a.length, 0);
   if (total === 0) return null;
 
@@ -54,21 +65,51 @@ function GroceryList({ days }: { days: DayPlan[] }) {
   const toggleCat = (cat: string) =>
     setCollapsed(p => { const n = new Set(p); n.has(cat) ? n.delete(cat) : n.add(cat); return n; });
 
+  const shareText = buildShareText(grouped);
+
+  const handleShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ title: '🛒 Grocery List', text: shareText }); } catch {}
+    } else {
+      handleCopy();
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopyLabel('✓ Copied!');
+      setTimeout(() => setCopyLabel('📋 Copy'), 2000);
+    } catch { setCopyLabel('📋 Copy'); }
+  };
+
   return (
-    <div className="mt-8 rounded-2xl overflow-hidden" style={{ border: '1px solid #F0E8D8' }}>
+    <div ref={listRef} className="mt-8 rounded-2xl overflow-hidden scroll-mt-20" style={{ border: '1px solid #F0E8D8' }}>
       {/* header */}
-      <div className="px-5 py-4 flex items-center justify-between" style={{ background: '#FDF6EC', borderBottom: '1px solid #F0E8D8' }}>
+      <div className="px-4 py-3 flex items-center justify-between gap-2 flex-wrap" style={{ background: '#FDF6EC', borderBottom: '1px solid #F0E8D8' }}>
         <div>
           <h2 className="font-bold text-base" style={{ color: '#2C2416' }}>🛒 Grocery List</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             {total - checked.size} items remaining · {checked.size} ticked off
           </p>
         </div>
-        {checked.size > 0 && (
-          <button onClick={() => setChecked(new Set())} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-            Clear ticks
+        <div className="flex items-center gap-2">
+          {checked.size > 0 && (
+            <button onClick={() => setChecked(new Set())} className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1">
+              Clear ticks
+            </button>
+          )}
+          <button onClick={handleCopy}
+            className="text-xs font-medium px-3 py-1.5 rounded-full border transition-colors hover:bg-gray-50"
+            style={{ border: '1px solid #D1C4AE', color: '#5C4A2A' }}>
+            {copyLabel}
           </button>
-        )}
+          <button onClick={handleShare}
+            className="text-xs font-medium px-3 py-1.5 rounded-full text-white transition-opacity hover:opacity-90"
+            style={{ background: '#4A7C59' }}>
+            📤 Share
+          </button>
+        </div>
       </div>
 
       {/* categories */}
@@ -301,6 +342,7 @@ export default function HomePage() {
   const [userName, setUserName]           = useState('');
   const [partialDays, setPartialDays]     = useState<(DayPlan | null)[] | null>(null);
   const [showGrocery, setShowGrocery]     = useState(false);
+  const groceryRef                         = useRef<HTMLDivElement>(null);
 
   const normalizePlan = (raw: unknown): MealPlan => {
     const r = raw as Record<string, unknown>;
@@ -393,7 +435,10 @@ export default function HomePage() {
       setPlan({ days: allDays, fasting_days: weekFastingDays });
       setPartialDays(null);
       // Auto-show grocery list when generating next week's plan
-      if (activeWeek === 'next') setShowGrocery(true);
+      if (activeWeek === 'next') {
+        setShowGrocery(true);
+        setTimeout(() => groceryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      }
     } catch (e: unknown) {
       setError((e as Error).message);
       setPartialDays(null);
@@ -487,10 +532,13 @@ export default function HomePage() {
           </div>
           <div className="flex gap-2 shrink-0">
             {plan && activeWeek === 'next' && (
-              <button onClick={() => setShowGrocery(v => !v)}
+              <button onClick={() => {
+                setShowGrocery(true);
+                setTimeout(() => groceryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+              }}
                 className="px-3 sm:px-4 py-2 text-sm font-medium border transition-colors hover:bg-gray-50"
                 style={{ border: '1.5px solid #4A7C59', color: '#4A7C59', borderRadius: '50px' }}>
-                🛒 <span className="hidden sm:inline">{showGrocery ? 'Hide list' : 'Grocery list'}</span>
+                🛒 <span className="hidden sm:inline">Grocery list</span>
               </button>
             )}
             {plan && (
@@ -596,7 +644,7 @@ export default function HomePage() {
 
                 {/* Grocery list — shown below the plan for next week */}
                 {activeWeek === 'next' && plan && showGrocery && (
-                  <GroceryList days={plan.days ?? []} />
+                  <GroceryList days={plan.days ?? []} listRef={groceryRef} />
                 )}
               </div>
 
