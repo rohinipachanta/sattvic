@@ -344,11 +344,35 @@ export default function HomePage() {
   const [showGrocery, setShowGrocery]     = useState(false);
   const groceryRef                         = useRef<HTMLDivElement>(null);
 
+  // Guard against Gemini accidentally returning per-member objects in string fields
+  const sanitizeMealForRender = (meal: Record<string, unknown>): Record<string, unknown> => {
+    const safe: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(meal)) {
+      if (k === 'accompaniments' || k === 'ingredients' || k === 'goal_alignment' || k === 'instructions') {
+        safe[k] = Array.isArray(v) ? v : [];
+      } else if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+        // Plain object in a scalar field — extract first string value
+        const vals = Object.values(v as Record<string, unknown>);
+        safe[k] = vals.length > 0 && typeof vals[0] === 'string' ? vals[0] : String(vals[0] ?? '');
+      } else {
+        safe[k] = v;
+      }
+    }
+    return safe;
+  };
+
   const normalizePlan = (raw: unknown): MealPlan => {
     const r = raw as Record<string, unknown>;
     const planData = (r?.plan_data ?? r) as Record<string, unknown>;
-    const days = (planData?.days ?? planData?.week ?? []) as MealPlan['days'];
-    const fd   = (planData?.fasting_days ?? []) as FastingDay[];
+    const rawDays = (planData?.days ?? planData?.week ?? []) as MealPlan['days'];
+    // Sanitize every meal so objects in string fields don't crash the renderer
+    const days = (rawDays ?? []).map(day => ({
+      ...day,
+      meals: (day.meals ?? []).map(meal =>
+        sanitizeMealForRender(meal as unknown as Record<string, unknown>) as unknown as typeof meal
+      ),
+    }));
+    const fd = (planData?.fasting_days ?? []) as FastingDay[];
     return { ...(planData as MealPlan), days, fasting_days: fd };
   };
 

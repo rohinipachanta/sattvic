@@ -234,8 +234,21 @@ Rotate through these cuisines day to day. Do not serve the same regional cuisine
 6. Mark each meal's Ayurvedic Guna (sattvik / rajasic / tamasic) and dosha effect.
 7. Include goal_alignment listing which health goals each meal supports.
 
-## Response Format
-Return ONLY valid JSON in this exact structure (no markdown, no explanation):
+═══════════════════════════════════════════════════════════
+🔴  JSON STRUCTURE — NON-NEGOTIABLE
+═══════════════════════════════════════════════════════════
+ONE shared meal per meal_type for the WHOLE family.
+NEVER use family member names as JSON keys anywhere.
+NEVER split meals by person. All fields must be plain strings or numbers.
+Use the accompaniments array for any per-member notes.
+
+❌ WRONG — never do this:
+"breakfast": { "${familyMembers.map(m => m.name).join('": {...}, "')}" : {...} }
+
+✅ CORRECT — always do this:
+"breakfast": { "name": "Pesarattu", "ingredients": [...], "accompaniments": [...] }
+
+Return ONLY valid JSON — no markdown fences, no explanation, no extra keys.
 
 {
   "week": [
@@ -245,7 +258,7 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanation):
       "is_fasting": false,
       "meals": {
         "breakfast": {
-          "name": "string",
+          "name": "string — the dish name",
           "cuisine": "string",
           "protein_g": number,
           "calories": number,
@@ -253,35 +266,53 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanation):
           "fat_g": number,
           "fiber_g": number,
           "sodium_mg": number,
-          "ayurvedic_guna": "sattvik|rajasic|tamasic",
+          "ayurvedic_guna": "sattvik",
           "dosha_effect": "string",
           "health_notes": "string",
-          "goal_alignment": ["weight_loss"|"weight_gain"|"energy"|"gut_health"|"hormonal_balance"],
-          "ingredients": ["string"],
+          "goal_alignment": ["energy"],
+          "ingredients": ["ingredient 1", "ingredient 2"],
           "ayurvedic_notes": "string",
           "accompaniments": [
-            {
-              "name": "string",
-              "reason": "string",
-              "dosha_benefit": "string",
-              "optional": true
-            }
+            { "name": "string", "reason": "string", "dosha_benefit": "string", "optional": true }
           ]
         },
-        "lunch": { ...same structure... },
-        "dinner": { ...same structure... }
+        "lunch": { "name": "string", "cuisine": "string", "protein_g": 0, "calories": 0, "carbs_g": 0, "fat_g": 0, "fiber_g": 0, "sodium_mg": 0, "ayurvedic_guna": "sattvik", "dosha_effect": "", "health_notes": "", "goal_alignment": [], "ingredients": [], "ayurvedic_notes": "", "accompaniments": [] },
+        "dinner": { "name": "string", "cuisine": "string", "protein_g": 0, "calories": 0, "carbs_g": 0, "fat_g": 0, "fiber_g": 0, "sodium_mg": 0, "ayurvedic_guna": "sattvik", "dosha_effect": "", "health_notes": "", "goal_alignment": [], "ingredients": [], "ayurvedic_notes": "", "accompaniments": [] }
       },
-      "daily_totals": {
-        "protein_g": number,
-        "calories": number,
-        "carbs_g": number,
-        "fat_g": number,
-        "fiber_g": number
-      }
+      "daily_totals": { "protein_g": 0, "calories": 0, "carbs_g": 0, "fat_g": 0, "fiber_g": 0 }
     }
   ]
 }
 `
+}
+
+/**
+ * If Gemini accidentally returned a field as a per-member object
+ * (e.g. name: { "Roh": "Poha", "Vasu": "Upma" }) instead of a string,
+ * extract the first string value so the UI never receives a plain object.
+ */
+function flattenField(value: unknown): unknown {
+  if (value === null || value === undefined) return value
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+  if (Array.isArray(value)) return value
+  // It's a plain object — take the first value (per-member accident)
+  const vals = Object.values(value as Record<string, unknown>)
+  return vals.length > 0 ? flattenField(vals[0]) : undefined
+}
+
+function sanitizeMeal(m: Record<string, unknown>): Record<string, unknown> {
+  const safe: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(m)) {
+    // Keep arrays and objects that look like accompaniments / nutrition intact
+    if (k === 'accompaniments' || k === 'ingredients' || k === 'goal_alignment' || k === 'instructions') {
+      safe[k] = Array.isArray(v) ? v : []
+    } else if (k === 'nutrition') {
+      safe[k] = v // keep as-is, it's a structured object
+    } else {
+      safe[k] = flattenField(v)
+    }
+  }
+  return safe
 }
 
 /**
@@ -295,7 +326,7 @@ function normalizeMeals(day: Record<string, unknown>): DayPlan['meals'] {
   if (Array.isArray(meals)) {
     // Already an array — ensure each item has meal_type and date
     return meals.map((m: unknown) => {
-      const meal = m as Record<string, unknown>
+      const meal = sanitizeMeal(m as Record<string, unknown>)
       return {
         ...meal,
         meal_type: meal.meal_type ?? undefined,
@@ -309,9 +340,10 @@ function normalizeMeals(day: Record<string, unknown>): DayPlan['meals'] {
     // Object form — convert { breakfast: {...}, lunch: {...}, dinner: {...} } → array
     const mealsObj = meals as Record<string, unknown>
     return (['breakfast', 'lunch', 'dinner', 'snack'] as const)
-      .filter(type => mealsObj[type] != null)
+      .filter(type => mealsObj[type] != null && typeof mealsObj[type] === 'object' && !Array.isArray(mealsObj[type]))
       .map(type => {
-        const m = mealsObj[type] as Record<string, unknown>
+        const raw = mealsObj[type] as Record<string, unknown>
+        const m = sanitizeMeal(raw)
         return {
           ...m,
           meal_type: type,
