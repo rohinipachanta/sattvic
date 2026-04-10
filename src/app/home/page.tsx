@@ -426,10 +426,17 @@ export default function HomePage() {
       weekFastingDays = json0.fastingDays ?? [];
       setFastingDays(weekFastingDays);
 
-      const usedMeals: string[] = (json0.days as DayPlan[])
+      // Accumulate avoidMeals sequentially so each batch knows ALL prior dishes
+      const avoid0: string[] = (json0.days as DayPlan[])
         .flatMap(d => d.meals.map(m => m.name)).filter(Boolean);
 
-      await Promise.all([fetchBatch(2, 2, usedMeals), fetchBatch(4, 2, usedMeals), fetchBatch(6, 1, usedMeals)]);
+      const json2 = await fetchBatch(2, 2, avoid0);
+      const avoid2 = [...avoid0, ...(json2.days as DayPlan[]).flatMap(d => d.meals.map(m => m.name)).filter(Boolean)];
+
+      const json4 = await fetchBatch(4, 2, avoid2);
+      const avoid4 = [...avoid2, ...(json4.days as DayPlan[]).flatMap(d => d.meals.map(m => m.name)).filter(Boolean)];
+
+      await fetchBatch(6, 1, avoid4);
 
       const allDays = collected.filter(Boolean) as DayPlan[];
       setPlan({ days: allDays, fasting_days: weekFastingDays });

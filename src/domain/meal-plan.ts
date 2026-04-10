@@ -127,34 +127,112 @@ Avoid: ${season.avoid.join(', ')}`
   // ── Cuisine preferences ──
   const cuisineSection = cuisines.map(c => c.replace('_', ' ')).join(', ')
 
-  return `You are Sattvic, an expert Ayurvedic nutritionist and Indian meal planner.
+  // ── Build hard dietary restriction lines ──
+  const dietaryRules = familyMembers.map(m => {
+    const rules: string[] = []
+    const diet = m.dietary_preference
+    if (diet === 'vegetarian' || diet === 'vegan' || diet === 'jain')
+      rules.push(`${m.name} is ${diet.toUpperCase()}: ZERO meat, fish, chicken, or seafood — ever.`)
+    if (diet === 'vegan')
+      rules.push(`${m.name} is VEGAN: No dairy (milk, paneer, ghee, curd, butter, cream) — ever.`)
+    if (diet === 'jain')
+      rules.push(`${m.name} is JAIN: No root vegetables (onion, garlic, potato, carrot, beetroot).`)
+    m.health_conditions.forEach(c => {
+      if (c === 'diabetes' || c === 'diabetes_type2')
+        rules.push(`${m.name} has DIABETES: NO white rice, maida, refined sugar, or high-GI foods.`)
+      if (c === 'gluten_intolerant' || c === 'gluten_sensitivity')
+        rules.push(`${m.name} is GLUTEN INTOLERANT: Absolutely NO wheat, atta, roti, bread, semolina, or barley.`)
+      if (c === 'lactose_intolerant' || c === 'lactose_intolerance')
+        rules.push(`${m.name} is LACTOSE INTOLERANT: No cow milk, paneer, or cream. Small curd OK. Coconut/oat milk preferred.`)
+      if (c === 'nut_allergy')
+        rules.push(`${m.name} has NUT ALLERGY: ZERO nuts or nut-derived ingredients in any meal.`)
+      if (c === 'kidney_disease')
+        rules.push(`${m.name} has KIDNEY DISEASE: Low potassium, low phosphorus, low sodium. Restrict high-protein foods.`)
+    })
+    return rules
+  }).flat()
+
+  const dietarySection = dietaryRules.length > 0
+    ? dietaryRules.map(r => `⚠️ ${r}`).join('\n')
+    : 'No hard dietary restrictions — follow standard Ayurvedic guidelines.'
+
+  // ── Build dosha guidance per member ──
+  const doshaGuidance = familyMembers.map(m => {
+    if (!m.dosha) return null
+    const doshaFoods: Record<string, { favour: string; avoid: string }> = {
+      vata:       { favour: 'warm, oily, grounding foods — soups, khichdi, sesame, root vegetables, ghee, warm milk', avoid: 'cold, raw, dry, light foods — salads, crackers, carbonated drinks' },
+      pitta:      { favour: 'cooling, sweet, bitter foods — coconut, coriander, fennel, cucumber, sweet fruits, leafy greens', avoid: 'spicy, sour, oily, fermented foods — chilli, tamarind, vinegar, fried food' },
+      kapha:      { favour: 'light, dry, spiced foods — millet, barley, bitter greens, ginger, black pepper, honey, legumes', avoid: 'heavy, sweet, oily, cold foods — wheat, dairy, fried items, sugar, cold drinks' },
+      vata_pitta: { favour: 'warm, mildly spiced, nourishing — khichdi, root vegetables, coconut milk curries, moderate ghee', avoid: 'extremes — very spicy OR very cold/raw' },
+      pitta_kapha:{ favour: 'light, cooling, lightly spiced — millets, bitter vegetables, legumes, coconut', avoid: 'heavy, oily, very spicy or sour foods' },
+      vata_kapha: { favour: 'warm, lightly spiced, easy to digest — cooked vegetables, moong dal, ginger tea, warm soups', avoid: 'cold foods, heavy dairy, raw salads, refined carbs' },
+    }
+    const guide = doshaFoods[m.dosha]
+    return guide ? `${m.name} (${m.dosha}): Favour ${guide.favour}. Avoid ${guide.avoid}.` : null
+  }).filter(Boolean)
+
+  return `You are Sattvic, an expert Ayurvedic nutritionist and Indian home cook.
 Generate a ${actualDayCount}-day personalised meal plan for this family.
 
-## Family Profiles
+═══════════════════════════════════════════════════════════
+⚠️  HARD DIETARY RULES — THESE OVERRIDE EVERYTHING ELSE
+═══════════════════════════════════════════════════════════
+${dietarySection}
+
+If any rule above is violated, the output is INVALID. Double-check every meal against every rule before writing your response.
+
+═══════════════════════════════════════════════════════════
+🚫  ANTI-REPETITION MANDATE
+═══════════════════════════════════════════════════════════
+${avoidMeals.length > 0
+  ? `These dishes are ALREADY PLANNED this week. You MUST NOT use any of them:\n${avoidMeals.map(m => `  ✗ ${m}`).join('\n')}`
+  : 'No dishes planned yet — still ensure NO dish repeats within this batch.'}
+
+Every breakfast, every lunch, every dinner across all ${actualDayCount} days must be a COMPLETELY DIFFERENT dish.
+Think of the FULL diversity of Indian cooking: Tamil, Kerala, Karnataka, Andhra, Maharashtra, Gujarat, Rajasthan, Bengal, Punjab, Himachal — draw from all of them.
+Explore dishes beyond the basics: pesarattu, akki roti, thalipeeth, thepla, dhokla, adai, pongal, bisi bele bath, zunka, pitla, kootu, avial, chettinad curries, Kashmiri saag, and more.
+
+═══════════════════════════════════════════════════════════
+👨‍👩‍👧  FAMILY PROFILES
+═══════════════════════════════════════════════════════════
 ${memberProfiles}
 
-## Week Dates
+═══════════════════════════════════════════════════════════
+🌿  DOSHA-BASED FOOD GUIDANCE
+═══════════════════════════════════════════════════════════
+${doshaGuidance.length > 0 ? doshaGuidance.join('\n') : 'Balanced plan — no specific dosha focus.'}
+
+═══════════════════════════════════════════════════════════
+📅  WEEK DATES
+═══════════════════════════════════════════════════════════
 ${weekDates.join('\n')}
 
-## Fasting Days This Week
+═══════════════════════════════════════════════════════════
+🙏  FASTING DAYS
+═══════════════════════════════════════════════════════════
 ${fastingSection}
 
-## Ayurvedic Season
+═══════════════════════════════════════════════════════════
+🍂  AYURVEDIC SEASON
+═══════════════════════════════════════════════════════════
 ${seasonSection}
 
-## Cuisine Preferences
-${cuisineSection}
+═══════════════════════════════════════════════════════════
+🍽️  CUISINE PREFERENCES
+═══════════════════════════════════════════════════════════
+Preferred cuisines: ${cuisineSection}
+Rotate through these cuisines day to day. Do not serve the same regional cuisine two days in a row.
 
-## Instructions
-1. Generate breakfast, lunch, and dinner for each of the ${actualDayCount} days listed above.
-2. For fasting days, ONLY use allowed foods listed above. Absolutely no restricted foods.
-3. For each meal, suggest 1–2 optional dosha-balancing accompaniments for each family member.
-4. Ensure each day meets or approaches each member's protein target.
-5. Vary cuisines across the week. Avoid repeating the same dish in the same week.
-6. Meals should be realistic Indian home cooking — not restaurant food or exotic recipes.
-7. Mark each meal's Ayurvedic Guna (sattvik / rajasic / tamasic) and primary dosha effect.
-8. Include goal_alignment array listing which health goals this meal supports.
-${avoidMeals.length > 0 ? `9. CRITICAL: Do NOT repeat any of these dishes already planned this week: ${avoidMeals.join(', ')}` : ''}
+═══════════════════════════════════════════════════════════
+📋  COOKING INSTRUCTIONS
+═══════════════════════════════════════════════════════════
+1. Generate breakfast, lunch, and dinner for each of the ${actualDayCount} days above.
+2. Fasting days: ONLY use allowed foods listed. Zero restricted foods.
+3. Suggest 1–2 dosha-balancing accompaniments per meal.
+4. Hit or approach each member's daily protein target.
+5. Meals must be realistic Indian HOME cooking, not restaurant or fusion food.
+6. Mark each meal's Ayurvedic Guna (sattvik / rajasic / tamasic) and dosha effect.
+7. Include goal_alignment listing which health goals each meal supports.
 
 ## Response Format
 Return ONLY valid JSON in this exact structure (no markdown, no explanation):
